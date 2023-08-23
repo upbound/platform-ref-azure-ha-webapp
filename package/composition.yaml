@@ -1,0 +1,235 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: Composition
+metadata:
+  name: xhawebapps.ha.azure.upbound.io
+  labels:
+    provider: azure
+spec:
+  compositeTypeRef:
+    apiVersion: ha.azure.upbound.io/v1alpha1
+    kind: XHAWebApp
+  patchSets:
+    - name: primaryRegion
+      patches:
+        - fromFieldPath: spec.primaryRegion
+          toFieldPath: spec.forProvider.location
+        - fromFieldPath: spec.primaryRegion
+          toFieldPath: metadata.labels[ha.azure.upbound.io/region]
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.name
+              - fromFieldPath: spec.primaryRegion
+            strategy: string
+            string:
+              fmt: "%s-%s"
+          toFieldPath: metadata.name
+    - name: secondaryRegion
+      patches:
+        - fromFieldPath: spec.secondaryRegion
+          toFieldPath: spec.forProvider.location
+        - fromFieldPath: spec.secondaryRegion
+          toFieldPath: metadata.labels[ha.azure.upbound.io/region]
+        - type: CombineFromComposite
+          combine:
+            variables:
+              - fromFieldPath: metadata.name
+              - fromFieldPath: spec.secondaryRegion
+            strategy: string
+            string:
+              fmt: "%s-%s"
+          toFieldPath: metadata.name
+  resources:
+    - name: resource-group
+      base:
+        apiVersion: azure.upbound.io/v1beta1
+        kind: ResourceGroup
+      patches:
+        - type: PatchSet
+          patchSetName: primaryRegion
+    - name: service-plan-primary
+      base:
+        apiVersion: web.azure.upbound.io/v1beta1
+        kind: ServicePlan
+        spec:
+          forProvider:
+            osType: Linux
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            skuName: B1
+      patches:
+        - type: PatchSet
+          patchSetName: primaryRegion
+    - name: service-plan-secondary
+      base:
+        apiVersion: web.azure.upbound.io/v1beta1
+        kind: ServicePlan
+        spec:
+          forProvider:
+            osType: Linux
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            skuName: B1
+      patches:
+        - type: PatchSet
+          patchSetName: secondaryRegion
+    - name: web-app-primary
+      base:
+        apiVersion: web.azure.upbound.io/v1beta1
+        kind: LinuxWebApp
+        spec:
+          forProvider:
+            osType: Linux
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            skuName: B1
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            servicePlanIdSelector:
+              matchControllerRef: true
+            siteConfig:
+              - alwaysOn: true
+      patches:
+        - type: PatchSet
+          patchSetName: primaryRegion
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.primaryRegion
+          toFieldPath: spec.forProvider.servicePlanIdSelector.matchLabels[ha.azure.upbound.io/region]
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.defaultHostname
+          toFieldPath: status.primaryAppDomain
+    - name: web-app-secondary
+      base:
+        apiVersion: web.azure.upbound.io/v1beta1
+        kind: LinuxWebApp
+        spec:
+          forProvider:
+            osType: Linux
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            skuName: B1
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            servicePlanIdSelector:
+              matchControllerRef: true
+            siteConfig:
+              - alwaysOn: true
+      patches:
+        - type: PatchSet
+          patchSetName: secondaryRegion
+        - type: FromCompositeFieldPath
+          fromFieldPath: spec.secondaryRegion
+          toFieldPath: spec.forProvider.servicePlanIdSelector.matchLabels[ha.azure.upbound.io/region]
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.defaultHostname
+          toFieldPath: status.secondaryAppDomain
+    - name: frontdoor-profile
+      base:
+        apiVersion: cdn.azure.upbound.io/v1beta1
+        kind: FrontdoorProfile
+        spec:
+          forProvider:
+            resourceGroupNameSelector:
+              matchControllerRef: true
+            skuName: Standard_AzureFrontDoor
+    - name: frontdoor-origin-group
+      base:
+        apiVersion: cdn.azure.upbound.io/v1beta1
+        kind: FrontdoorOriginGroup
+        spec:
+          forProvider:
+            cdnFrontdoorProfileIdSelector:
+              matchControllerRef: true
+            loadBalancing:
+              - additionalLatencyInMilliseconds: 50
+                sampleSize: 4
+                successfulSamplesRequired: 3
+            healthProbe:
+              - intervalInSeconds: 10
+                path: /
+                protocol: Https
+                requestType: HEAD
+            sessionAffinityEnabled: false
+    - name: frontdoor-origin-primary
+      base:
+        apiVersion: cdn.azure.upbound.io/v1beta1
+        kind: FrontdoorOrigin
+        spec:
+          forProvider:
+            cdnFrontdoorOriginGroupIdSelector:
+              matchControllerRef: true
+            certificateNameCheckEnabled: false
+            enabled: true
+            httpPort: 80
+            httpsPort: 443
+            priority: 1
+            weight: 1
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.primaryAppDomain
+          toFieldPath: spec.forProvider.hostName
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.primaryAppDomain
+          toFieldPath: spec.forProvider.originHostHeader
+          policy:
+            fromFieldPath: Required
+    - name: frontdoor-origin-secondary
+      base:
+        apiVersion: cdn.azure.upbound.io/v1beta1
+        kind: FrontdoorOrigin
+        spec:
+          forProvider:
+            cdnFrontdoorOriginGroupIdSelector:
+              matchControllerRef: true
+            certificateNameCheckEnabled: false
+            enabled: true
+            httpPort: 80
+            httpsPort: 443
+            priority: 2
+            weight: 1
+      patches:
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.secondaryAppDomain
+          toFieldPath: spec.forProvider.hostName
+          policy:
+            fromFieldPath: Required
+        - type: FromCompositeFieldPath
+          fromFieldPath: status.secondaryAppDomain
+          toFieldPath: spec.forProvider.originHostHeader
+          policy:
+            fromFieldPath: Required
+    - name: frontdoor-endpoint
+      base:
+        apiVersion: cdn.azure.upbound.io/v1beta1
+        kind: FrontdoorEndpoint
+        spec:
+          forProvider:
+            cdnFrontdoorProfileIdSelector:
+              matchControllerRef: true
+      patches:
+        - type: ToCompositeFieldPath
+          fromFieldPath: status.atProvider.hostName
+          toFieldPath: status.globalEndpoint
+    - name: frontdoor-route
+      base:
+        apiVersion: cdn.azure.upbound.io/v1beta1
+        kind: FrontdoorRoute
+        spec:
+          forProvider:
+            cdnFrontdoorEndpointIdSelector:
+              matchControllerRef: true
+            cdnFrontdoorOriginGroupIdSelector:
+              matchControllerRef: true
+            cdnFrontdoorOriginIdsSelector:
+              matchControllerRef: true
+            enabled: true
+            forwardingProtocol: HttpsOnly
+            httpsRedirectEnabled: true
+            linkToDefaultDomain: true
+            patternsToMatch:
+              - /*
+            supportedProtocols:
+              - Http
+              - Https

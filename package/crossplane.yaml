@@ -1,0 +1,28 @@
+apiVersion: meta.pkg.crossplane.io/v1alpha1
+kind: Configuration
+metadata:
+  name: platform-ref-azure-hawebapp
+  annotations:
+    meta.crossplane.io/maintainer: Upbound <support@upbound.io>
+    meta.crossplane.io/source: github.com/upbound/platform-ref-azure-hawebapp
+    meta.crossplane.io/license: Apache-2.0
+    meta.crossplane.io/description: |
+      This reference platform Configuration for Azure highly available multi-region web app
+
+    meta.crossplane.io/readme: |
+      This reference platform `Configuration` for Azure highly available multi-region web app
+      following well-architected best practices, inspired by https://azure.github.io/AppService/2022/12/02/multi-region-web-app.html
+
+      To learn more checkout the [GitHub
+      repo](https://github.com/upbound/platform-ref-azure-hawebapp/) that you can copy and
+      customize to meet the exact needs of your organization!
+spec:
+  crossplane:
+    version: ">=v1.12.1-0"
+  dependsOn:
+    - provider: xpkg.upbound.io/upbound/provider-family-azure
+      version: ">=v0.36.0"
+    - provider: xpkg.upbound.io/upbound/provider-azure-cdn
+      version: ">=v0.36.0"
+    - provider: xpkg.upbound.io/upbound/provider-azure-web
+      version: ">=v0.36.0"

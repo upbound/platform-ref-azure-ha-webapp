@@ -1,0 +1,13 @@
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: upbound-provider-azure-cdn
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-cdn:v0.33.0
+---
+apiVersion: pkg.crossplane.io/v1
+kind: Provider
+metadata:
+  name: upbound-provider-azure-web
+spec:
+  package: xpkg.upbound.io/upbound/provider-azure-web:v0.33.0
