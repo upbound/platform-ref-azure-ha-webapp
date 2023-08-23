@@ -1,0 +1,50 @@
+apiVersion: apiextensions.crossplane.io/v1
+kind: CompositeResourceDefinition
+metadata:
+  name: xhawebapps.ha.azure.upbound.io
+spec:
+  group: ha.azure.upbound.io
+  names:
+    kind: XHAWebApp
+    plural: xhawebapps
+  claimNames:
+    kind: HAWebApp
+    plural: hawebapps
+  versions:
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                primaryRegion:
+                  type: string
+                  description: Primary region for your HA Web Application
+                  enum:
+                    - northeurope
+                    - westeurope
+                secondaryRegion:
+                  type: string
+                  description: Secondary region for your HA Web Application
+                  enum:
+                    - northeurope
+                    - westeurope
+              required:
+                - primaryRegion
+                - secondaryRegion
+            status:
+              type: object
+              properties:
+                primaryAppDomain:
+                  type: string
+                  description: Direct access in primary region
+                secondaryAppDomain:
+                  type: string
+                  description: Direct access in secondary region
+                globalEndpoint:
+                  type: string
+                  description: Highly Available FQDN, customer facing

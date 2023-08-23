@@ -1,0 +1,8 @@
+apiVersion: ha.azure.upbound.io/v1alpha1
+kind: HAWebApp
+metadata:
+  name: awesome-upbound-ha-app
+  namespace: default
+spec:
+  primaryRegion: westeurope
+  secondaryRegion: northeurope
