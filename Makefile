@@ -1,5 +1,5 @@
 # Project Setup
-PROJECT_NAME := platform-ref-azure-hawebapp
+PROJECT_NAME := platform-ref-azure-ha-webapp
 PROJECT_REPO := github.com/upbound/$(PROJECT_NAME)
 
 # NOTE(hasheddan): the platform is insignificant here as Configuration package
